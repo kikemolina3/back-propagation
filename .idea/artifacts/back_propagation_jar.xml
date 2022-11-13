@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="back-propagation:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/back_propagation_jar</output-path>
+    <root id="archive" name="back-propagation.jar">
+      <element id="module-output" name="back-propagation" />
+    </root>
+  </artifact>
+</component>

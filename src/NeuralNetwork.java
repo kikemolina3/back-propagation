@@ -1,3 +1,4 @@
+import java.io.*;
 import java.util.*;
 
 public class NeuralNetwork {
@@ -195,13 +196,18 @@ public class NeuralNetwork {
         }
     }
 
-    public float onlineBackPropagation() {
+    public float onlineBackPropagation() throws IOException {
         init();
         dataset.scale(0.1f, 0.9f);
+        File errorFile = new File("src\\resources\\" + dataset.getFilename().substring(0, dataset.getFilename().length() - 4) + "_error.txt");
+        File predictionFile = new File("src\\resources\\" + dataset.getFilename().substring(0, dataset.getFilename().length() - 4) + "_prediction.txt");
+        createOrEraseFile(errorFile);
+        createOrEraseFile(predictionFile);
         float globalError = 0;
         List<Integer> trainingIndexes = getTrainingIndexes();
         List<Integer> testingIndexes = getTestIndexes(trainingIndexes);
         for (int epoch = 0; epoch < epochs; epoch++) {
+            globalError = 0;
             for (Integer i : trainingIndexes) {
                 xi[0] = dataset.getInputs()[i];
                 feedForwardPropagation();
@@ -209,14 +215,15 @@ public class NeuralNetwork {
                 updateWeightsAndTheta();
                 float sum = 0;
                 for (int j = 0; j < n[L - 1]; j++) {
-                    sum += Math.abs((dataset.getOutputs()[i][j] - xi[L - 1][j]) / dataset.getOutputs()[i][j]);
+                    sum += Math.pow(xi[L - 1][j] - dataset.getOutputs()[i][j], 2);
                 }
                 globalError += sum / n[L - 1];
             }
             globalError /= trainingIndexes.size();
-            System.out.println("Epoch: " + epoch + " Error: " + globalError);
+            dumpErrorToFile(errorFile, globalError);
         }
-        //System.out.println("BEGIN TEST SET");
+        globalError = 0;
+        FileWriter fw = new FileWriter(predictionFile, true);
         for (Integer i : testingIndexes) {
             xi[0] = dataset.getInputs()[i];
             feedForwardPropagation();
@@ -225,10 +232,37 @@ public class NeuralNetwork {
                 sum += Math.abs((dataset.getOutputs()[i][j] - xi[L - 1][j]) / dataset.getOutputs()[i][j]);
             }
             globalError += sum / n[L - 1];
+            fw.write(dataset.unscaleValue(0, 0.1f, 0.9f, dataset.getOutputs()[i][0]) + " " +
+                    dataset.unscaleValue(0, 0.1f, 0.9f, xi[L - 1][0]));
+            fw.write(System.lineSeparator());
         }
+        fw.close();
         System.out.println("Global MAPE: " + (globalError / testingIndexes.size() * 100 + "%"));
         dataset.unscale(0.1f, 0.9f);
         return globalError / (dataset.getNum_samples() * (1 - training_ratio));
+    }
+
+    private static void dumpErrorToFile(File errorFile, float globalError) {
+        try {
+            FileWriter fw = new FileWriter(errorFile, true);
+            fw.write(globalError + "\n");
+            fw.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void createOrEraseFile(File errorFile) {
+        try {
+            errorFile.createNewFile();
+            PrintWriter writer = new PrintWriter(errorFile);
+            writer.print("");
+            writer.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private ErrorAndEpoch cvBackPropagation(List<Integer> validationIndexes, List<Integer>... trainingIndexes) {
@@ -237,10 +271,11 @@ public class NeuralNetwork {
         for (List<Integer> trainingIndex : trainingIndexes) {
             mergedTrainingIndexes.addAll(trainingIndex);
         }
-        float globalError = 0;
+        float globalError;
         int best_epoch = (int) epochs;
         float global_min_error = Float.MAX_VALUE;
         for (int epoch = 0; epoch < epochs; epoch++) {
+            globalError = 0;
             for (Integer i : mergedTrainingIndexes) {
                 xi[0] = dataset.getInputs()[i];
                 feedForwardPropagation();
@@ -248,23 +283,23 @@ public class NeuralNetwork {
                 updateWeightsAndTheta();
                 float sum = 0;
                 for (int j = 0; j < n[L - 1]; j++) {
-                    sum += Math.abs((dataset.getOutputs()[i][j] - xi[L - 1][j]) / dataset.getOutputs()[i][j]);
+                    sum += Math.pow(xi[L - 1][j] - dataset.getOutputs()[i][j], 2);
                 }
                 globalError += sum / n[L - 1];
             }
             globalError /= mergedTrainingIndexes.size();
-            System.out.println("Epoch: " + epoch + " Error: " + globalError);
             if (globalError < global_min_error) {
                 global_min_error = globalError;
                 best_epoch = epoch;
             }
         }
+        globalError = 0;
         for (Integer i : validationIndexes) {
             xi[0] = dataset.getInputs()[i];
             feedForwardPropagation();
             float sum = 0;
             for (int j = 0; j < n[L - 1]; j++) {
-                sum += Math.abs((dataset.getOutputs()[i][j] - xi[L - 1][j]) / dataset.getOutputs()[i][j]);
+                sum += Math.pow(xi[L - 1][j] - dataset.getOutputs()[i][j], 2);
             }
             globalError += sum / n[L - 1];
         }
@@ -298,13 +333,13 @@ public class NeuralNetwork {
                     for (int hidden_layers : hidden_layers_list) {
                         List<List<Integer>> allCombinations = getAllCombinations(hidden_layers);
                         for (List<Integer> hidden_neurons_per_layer : allCombinations) {
-                            this.loadFromGetBestParams(200, learning_rate, momentum, hidden_layers, hidden_neurons_per_layer.stream().mapToInt(i -> i).toArray(), fact);
+                            this.loadFromGetBestParams(500, learning_rate, momentum, hidden_layers, hidden_neurons_per_layer.stream().mapToInt(i -> i).toArray(), fact);
                             ErrorAndEpoch error1 = cvBackPropagation(s1, s2, s3, s4);
                             ErrorAndEpoch error2 = cvBackPropagation(s2, s1, s3, s4);
                             ErrorAndEpoch error3 = cvBackPropagation(s3, s1, s2, s4);
                             ErrorAndEpoch error4 = cvBackPropagation(s4, s1, s2, s3);
                             float error = (error1.getError() + error2.getError() + error3.getError() + error4.getError()) / 4;
-                            int epoch = (error1.getEpoch() + error2.getEpoch() + error3.getEpoch() + error4.getEpoch()) /4;
+                            int epoch = (error1.getEpoch() + error2.getEpoch() + error3.getEpoch() + error4.getEpoch()) / 4;
                             if (error < bestError) {
                                 bestError = error;
                                 setBestValue(epoch, learning_rate, momentum, hidden_layers, hidden_neurons_per_layer.stream().mapToInt(i -> i).toArray(), fact);

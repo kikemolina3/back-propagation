@@ -3,7 +3,7 @@ import java.io.IOException;
 import java.util.Properties;
 
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         Properties props = new Properties();
         try {
             props.load(new FileInputStream("src\\resources\\config.properties"));

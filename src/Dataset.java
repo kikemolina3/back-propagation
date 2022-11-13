@@ -122,7 +122,6 @@ public class Dataset {
             std = (float) Math.sqrt(std);
             for (int j = 0; j < this.num_samples; j++) {
                 if (Math.abs(this.inputs[j][i] - mean) > 3 * std) {
-//                    System.out.println("Num_feature: " + i + "\tNum_sample: " + j + "\tValue: " + this.x_values[j][i]);
                     this.inputs[j][i] = mean;
                 }
             }
@@ -181,6 +180,10 @@ public class Dataset {
                 }
             }
         }
+    }
+
+    public float unscaleValue(int index, float min, float max, float value) {
+        return (value - min) / (max - min) * (this.output_maxs[index] - this.output_mins[index]) + this.output_mins[index];
     }
 
     private void validateProps(Properties props) {
