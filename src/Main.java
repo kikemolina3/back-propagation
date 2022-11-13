@@ -11,8 +11,15 @@ public class Main {
             Color.printError("Error loading config.properties file");
         }
         Dataset d = new Dataset(props);
-        MNN mnn = new MNN(d, props);
-        mnn.onlineBackPropagation();
-        System.out.println("Done");
+        NeuralNetwork neuralNetwork = new NeuralNetwork(d, props);
+        if (args[0].equals("from_file")) {
+            neuralNetwork.loadFromConfigFile(props);
+            neuralNetwork.onlineBackPropagation();
+            System.out.println("Done");
+        } else if (args[0].equals("get_best_params")) {
+            neuralNetwork.crossValidation();
+        } else {
+            Color.printError("Invalid argument");
+        }
     }
 }
